@@ -1,0 +1,8 @@
+.arsenal
+.arsenal/
+arsenal.h
+arsenal-local.h
+build/
+*.o
+*.a
+compile_commands.json

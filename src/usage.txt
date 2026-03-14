@@ -1,0 +1,48 @@
+arsenal - a dependency manager for C projects
+
+usage: arsenal [-g] <command> [args...]
+
+commands:
+  grab <user/repo> [user/repo ...]     install one or more deps
+  remove <user/repo> [user/repo ...]   remove one or more deps
+  fix <user/repo>                      force sync dep to latest remote
+  search <keyword>                     search approved registry
+  list                                 list all installed deps
+  prefix                               print -I flags for all deps
+  set-provider <providers...>          set git providers in priority order
+  get-provider                         show current provider list
+  ch-version <user/repo> <tag/hash>    pin dep to specific version or commit
+  info <user/repo>                     print dep README
+  cd <user/repo>                       print dep vendor path
+
+flags:
+  -g             global install, shared across all projects
+  -v/--version   print arsenal version
+  -h/--help      print this help message
+  --verbose      show raw git output (grab only)
+
+examples:
+  arsenal grab DaveGamble/cJSON
+  arsenal grab DaveGamble/cJSON cofyc/argparse
+  arsenal -g grab DaveGamble/cJSON
+  arsenal grab DaveGamble/cJSON --verbose
+  arsenal remove DaveGamble/cJSON
+  arsenal fix DaveGamble/cJSON
+  arsenal search json
+  arsenal list
+  arsenal prefix
+  arsenal set-provider github.com codeberg.org
+  arsenal ch-version DaveGamble/cJSON v1.7.15
+  arsenal info DaveGamble/cJSON
+  arsenal cd DaveGamble/cJSON
+
+registry:
+  arsenal uses a curated registry hosted at arsenal-api.vercel.app
+  if a dep is not in the registry it falls back to your provider list
+  registry syncs automatically when outdated
+
+files:
+  global installs  $HOME/.local/share/arsenal/vendor/
+  local installs   $PWD/.arsenal/vendor/
+  lock file        arsenal.lock
+  header file      arsenal.h / arsenal-local.h
