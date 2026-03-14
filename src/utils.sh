@@ -104,8 +104,6 @@ cmd_list() {
         LABEL="local"
         [ "$GLOBAL" = "1" ] && LABEL="global"
 
-        # parse lock file blocks
-        REPO=""
         while IFS= read -r line; do
             case "$line" in
                 \[*\])
@@ -118,16 +116,21 @@ cmd_list() {
                 branch=*)   printf "    branch   : %s\n" "${line#branch=}" ;;
                 commit=*)   printf "    commit   : %s\n" "${line#commit=}" ;;
                 date=*)     printf "    date     : %s\n" "${line#date=}" ;;
+                libs=*)
+                    LIBS="${line#libs=}"
+                    [ -n "$LIBS" ] && printf "    libs     : %s\n" "$LIBS"
+                    ;;
             esac
         done < "$LOCK"
     done
 
     [ "$FOUND" = "0" ] && echo "[~] No packages installed"
 }
-
 # print -I flags for all installed deps
 cmd_prefix() {
     FOUND=0
+    IFLAGS=""
+    LFLAGS=""
 
     for GLOBAL in 0 1; do
         if [ "$GLOBAL" = "1" ]; then
@@ -138,17 +141,31 @@ cmd_prefix() {
 
         [ -d "$VENDOR" ] || continue
 
+        LOCK=$(get_lock_path "$GLOBAL")
+        [ -f "$LOCK" ] || continue
+
         for repo_dir in "$VENDOR"/*/; do
             [ -d "$repo_dir" ] || continue
             ABSPATH=$(cd "$repo_dir" && pwd)
-            printf -- "-I%s " "$ABSPATH"
+            IFLAGS="$IFLAGS -I$ABSPATH"
             FOUND=1
+
+            # get dirname and reverse to repo name
+            DIRNAME=$(basename "$repo_dir")
+            REPO=$(echo "$DIRNAME" | tr '@' '/')
+
+            # get libs from lock file
+            LIBS=$(lock_get_libs "$GLOBAL" "$REPO")
+            [ -n "$LIBS" ] && LFLAGS="$LFLAGS $LIBS"
         done
     done
 
-    [ "$FOUND" = "1" ] && printf "\n" || echo "[~] No packages installed"
+    if [ "$FOUND" = "1" ]; then
+        printf "%s %s\n" "$IFLAGS" "$LFLAGS" | xargs
+    else
+        echo "[~] No packages installed"
+    fi
 }
-
 # set providers in priority order
 cmd_set_provider() {
     if [ $# -lt 1 ]; then
@@ -253,4 +270,35 @@ cmd_info() {
 
     echo "[!] $REPO not found in local or global installs"
     return 1
+}
+
+cmd_update() {
+    UPDATED=0
+
+    for GLOBAL in 0 1; do
+        LOCK=$(get_lock_path "$GLOBAL")
+        [ -f "$LOCK" ] || continue
+
+        while IFS= read -r line; do
+            case "$line" in
+                \[*\])
+                    REPO="${line#[}"
+                    REPO="${REPO%]}"
+                    VENDOR_PATH=$(get_vendor_path "$REPO" "$GLOBAL")
+                    [ -d "$VENDOR_PATH" ] || continue
+                    printf "[~] Updating %s\n" "$REPO"
+                    git -C "$VENDOR_PATH" pull > /dev/null 2>&1 && {
+                        COMMIT=$(git -C "$VENDOR_PATH" rev-parse --short HEAD 2>/dev/null)
+                        sed -i "s/^commit=.*/commit=$COMMIT/" "$LOCK"
+                        printf "[✓] Updated %s\n" "$REPO"
+                        UPDATED=$((UPDATED+1))
+                    } || printf "[!] Failed to update %s\n" "$REPO"
+                    ;;
+            esac
+        done < "$LOCK"
+    done
+
+    [ "$UPDATED" = "0" ] && echo "[~] Nothing to update"
+    headergen "0"
+    headergen "1"
 }

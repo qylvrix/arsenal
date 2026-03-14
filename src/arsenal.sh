@@ -64,14 +64,10 @@ ARSENAL_SRC="$(cd "$(dirname "$0")" && pwd)"
 
 # internet check
 net_ok() {
-    for host in "arsenal-api.vercel.app" "google.com" "cloudflare.com"; do
-        if curl -sf --max-time 10 "https://$host" > /dev/null 2>&1; then
-            return 0
-        fi
-    done
+    curl -sf --max-time 5 --head "https://google.com" > /dev/null 2>&1 && return 0
+    curl -sf --max-time 5 --head "https://cloudflare.com" > /dev/null 2>&1 && return 0
     return 1
 }
-
 # get first provider from providers.txt or fallback
 get_first_provider() {
     if [ -f "$ARSENAL_PROVIDERS" ]; then
@@ -104,8 +100,7 @@ refresh_registry() {
     return 0
 }
 
-# lookup repo in ars_static.json
-# sets PROVIDER and BRANCH variables
+
 json_lookup() {
     REPO="$1"
     [ -f "$ARSENAL_JSON" ] || return 1
@@ -115,10 +110,13 @@ json_lookup() {
 
     PROVIDER=$(echo "$LINE" | sed 's/.*"provider":"\([^"]*\)".*/\1/')
     BRANCH=$(echo "$LINE"   | sed 's/.*"branch":"\([^"]*\)".*/\1/')
+    LIBS=$(echo "$LINE"     | sed 's/.*"libs":"\([^"]*\)".*/\1/')
+
+    # if no libs field set empty
+    echo "$LINE" | grep -q '"libs"' || LIBS=""
 
     return 0
 }
-
 # search local registry
 cmd_search() {
     if [ $# -ne 1 ]; then
@@ -260,7 +258,7 @@ cmd_grab() {
         COMMIT=$(git -C "$VENDOR_PATH" rev-parse --short HEAD 2>/dev/null || echo "unknown")
         DATE=$(date '+%Y-%m-%d')
 
-        lock_add "$GLOBAL" "$REPO" "$PROVIDER" "$BRANCH" "$COMMIT" "$DATE"
+        lock_add "$GLOBAL" "$REPO" "$PROVIDER" "$BRANCH" "$COMMIT" "$DATE" "$LIBS"
         headergen "$GLOBAL"
 
         echo "[✓] Grabbed $REPO"
@@ -331,5 +329,6 @@ case "$CMD" in
     ch-version)   cmd_ch_version "$@" ;;
     info)         cmd_info "$@" ;;
     cd)           cmd_cd "$@" ;;
+    update) cmd_update ;;
     *)            echo "arsenal: unknown command '$CMD'"; usage; exit 1 ;;
 esac

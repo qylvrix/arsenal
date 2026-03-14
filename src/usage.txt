@@ -14,6 +14,7 @@ commands:
   ch-version <user/repo> <tag/hash>    pin dep to specific version or commit
   info <user/repo>                     print dep README
   cd <user/repo>                       print dep vendor path
+  update                               update all installed deps
 
 flags:
   -g             global install, shared across all projects

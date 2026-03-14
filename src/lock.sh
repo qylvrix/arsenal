@@ -1,14 +1,6 @@
 #!/usr/bin/env bash
 
-# lock file format:
-# [user/repo]
-# dirname=user@repo
-# provider=github.com
-# branch=main
-# commit=abc1234
-# date=2026-03-14
-
-# add entry to lock file
+# add entry to lock file - now includes libs
 lock_add() {
     GLOBAL="$1"
     REPO="$2"
@@ -16,20 +8,32 @@ lock_add() {
     BRANCH="$4"
     COMMIT="$5"
     DATE="$6"
+    LIBS="$7"
     LOCK=$(get_lock_path "$GLOBAL")
     DIRNAME=$(repo_to_dirname "$REPO")
 
-    # skip if already tracked
-    if grep -q "^\[$REPO\]" "$LOCK" 2>/dev/null; then
-        return 0
-    fi
+    grep -q "^\[$REPO\]" "$LOCK" 2>/dev/null && return 0
 
     mkdir -p "$(dirname "$LOCK")"
 
-    printf "[%s]\ndirname=%s\nprovider=%s\nbranch=%s\ncommit=%s\ndate=%s\n\n" \
-        "$REPO" "$DIRNAME" "$PROVIDER" "$BRANCH" "$COMMIT" "$DATE" >> "$LOCK"
+    printf "[%s]\ndirname=%s\nprovider=%s\nbranch=%s\ncommit=%s\ndate=%s\nlibs=%s\n\n" \
+        "$REPO" "$DIRNAME" "$PROVIDER" "$BRANCH" "$COMMIT" "$DATE" "$LIBS" >> "$LOCK"
 }
 
+# read libs field for a repo
+lock_get_libs() {
+    GLOBAL="$1"
+    REPO="$2"
+    LOCK=$(get_lock_path "$GLOBAL")
+
+    [ -f "$LOCK" ] || return 1
+
+    awk -v repo="[$REPO]" '
+        $0 == repo { found=1; next }
+        found && /^\[/ { found=0 }
+        found && /^libs=/ { sub(/^libs=/, ""); print; exit }
+    ' "$LOCK"
+}
 # remove entry from lock file
 lock_remove() {
     GLOBAL="$1"
